@@ -38,6 +38,16 @@ export const getMe = async () => {
   return data.user;
 };
 
+export const updateProfile = async (profileData) => {
+  const { data } = await api.put('/auth/profile', profileData);
+  return data.user;
+};
+
+export const updatePassword = async (passwordData) => {
+  const { data } = await api.put('/auth/password', passwordData);
+  return data;
+};
+
 // --- Transactions ---
 
 export const getTransactions = async () => {
@@ -52,6 +62,11 @@ export const createTransaction = async (transactionData) => {
 
 export const deleteTransaction = async (id) => {
   await api.delete(`/transactions/${id}`);
+};
+
+export const updateTransaction = async (id, transactionData) => {
+  const { data } = await api.put(`/transactions/${id}`, transactionData);
+  return data.data;
 };
 
 // --- Insights ---

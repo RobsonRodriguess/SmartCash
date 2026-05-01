@@ -36,6 +36,21 @@ const TransactionSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    // ID único para agrupar transações da mesma compra/assinatura
+    groupId: {
+      type: String,
+    },
+    // Controle de parcelas (ex: 1 de 10)
+    installment: {
+      current: Number,
+      total: Number,
+    },
+    // Carteira/Banco de onde o dinheiro saiu ou entrou
+    wallet: {
+      type: String,
+      enum: ['Nubank', 'Itaú', 'Dinheiro', 'Mercado Pago', 'PicPay', 'Banco Pan', 'Outros'],
+      default: 'Dinheiro',
+    },
   },
   { timestamps: true }
 );

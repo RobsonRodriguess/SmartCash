@@ -113,6 +113,78 @@ router.get('/me', protect, (req, res) => {
   });
 });
 
+// PUT /api/auth/profile — atualiza nome e avatar
+router.put('/profile', protect, async (req, res) => {
+  const { name, avatar } = req.body;
+
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+
+    if (name) user.name = name;
+    if (avatar !== undefined) user.avatar = avatar; // Permite null para remover
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+      },
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/auth/password — atualiza a senha (requer senha atual)
+router.put('/password', protect, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ success: false, error: 'Informe a senha atual e a nova senha' });
+  }
+
+  try {
+    const user = await User.findById(req.user._id).select('+password');
+
+    // Se o usuário logou via Google e nunca definiu senha, a senha atual pode não existir
+    if (!user.password) {
+      return res.status(400).json({ success: false, error: 'Conta do Google sem senha. Use a opção de redefinir senha no login para criar uma.' });
+    }
+
+    if (!(await user.matchPassword(currentPassword))) {
+      return res.status(401).json({ success: false, error: 'Senha atual incorreta' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, error: 'A nova senha deve ter no mínimo 6 caracteres' });
+    }
+
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(newPassword);
+    if (!hasSpecialChar) {
+      return res.status(400).json({ success: false, error: 'A senha deve conter pelo menos 1 caractere especial.' });
+    }
+
+    const bcrypt = require('bcryptjs');
+    const isSameAsCurrent = await bcrypt.compare(newPassword, user.password);
+    if (isSameAsCurrent) {
+      return res.status(400).json({ success: false, error: 'A nova senha deve ser diferente da atual' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Senha alterada com sucesso' });
+  } catch (error) {
+    console.error('Update password error:', error);
+    res.status(500).json({ success: false, error: 'Erro interno no servidor' });
+  }
+});
+
 // ───────────────────────────────────────────────────────────────────────────
 // RECUPERAÇÃO DE SENHA (fluxo 3 passos)
 // ───────────────────────────────────────────────────────────────────────────

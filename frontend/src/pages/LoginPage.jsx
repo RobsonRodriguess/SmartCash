@@ -90,11 +90,14 @@ export default function LoginPage() {
           style={{ background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(24px)' }}
         >
           {/* Logo */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-600 to-purple-600 flex items-center justify-center shadow-lg shadow-primary-500/30 mb-4">
-              <span className="text-3xl">💹</span>
+          <div className="flex flex-col items-center mb-8 relative">
+            {/* Efeito de brilho atrás da logo */}
+            <div className="absolute top-0 w-20 h-20 bg-primary-500/30 rounded-full blur-xl animate-pulse" />
+            
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center relative z-10 mb-4 transition-transform hover:scale-105">
+              <img src="/logo.png" alt="Smart Cash Logo" className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(79,110,247,0.5)]" />
             </div>
-            <h1 className="text-2xl font-bold gradient-text">Smart Cash Monitor</h1>
+            <h1 className="text-2xl font-bold gradient-text text-center">Smart Cash Monitor</h1>
             <p className="text-slate-400 text-sm mt-1">
               {mode === 'login' ? 'Bem-vindo de volta!' : 'Crie sua conta gratuitamente'}
             </p>
@@ -103,7 +106,8 @@ export default function LoginPage() {
           {/* Banner de sucesso (vindo do reset de senha) */}
           {successMsg && (
             <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-xl px-4 py-3 flex items-center gap-2 mb-5">
-              <span>🎉</span><span>{successMsg}</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+              <span>{successMsg}</span>
             </div>
           )}
 

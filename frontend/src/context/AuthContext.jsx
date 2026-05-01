@@ -62,6 +62,11 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  const updateUserSession = useCallback((updatedUser) => {
+    setUser(updatedUser);
+    localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -73,6 +78,7 @@ export function AuthProvider({ children }) {
         loginWithEmail: handleLogin,
         registerWithEmail: handleRegister,
         logout,
+        updateUserSession,
       }}
     >
       {children}
