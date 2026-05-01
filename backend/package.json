@@ -1,0 +1,22 @@
+{
+  "name": "smart-cash-monitor-backend",
+  "version": "1.0.0",
+  "description": "Smart Cash Monitor - Backend API",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node --dns-result-order=ipv4first src/server.js",
+    "dev": "nodemon --exec \"node --dns-result-order=ipv4first\" src/server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "google-auth-library": "^10.6.2",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.4.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
