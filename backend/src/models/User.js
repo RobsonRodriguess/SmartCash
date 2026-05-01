@@ -7,6 +7,7 @@ const UserSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Nome é obrigatório'],
       trim: true,
+      maxlength: [100, 'O nome não pode ter mais de 100 caracteres'],
     },
     email: {
       type: String,
@@ -14,12 +15,14 @@ const UserSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
+      maxlength: [150, 'O email não pode ter mais de 150 caracteres'],
       match: [/^\S+@\S+\.\S+$/, 'Email inválido'],
     },
     // senha é opcional — quem usa Google não tem senha local
     password: {
       type: String,
       minlength: [6, 'Senha deve ter no mínimo 6 caracteres'],
+      maxlength: [100, 'Senha deve ter no máximo 100 caracteres'],
       select: false,
     },
     googleId: {

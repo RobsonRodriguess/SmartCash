@@ -13,16 +13,19 @@ const TransactionSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Descrição é obrigatória'],
       trim: true,
+      maxlength: [150, 'A descrição não pode ter mais de 150 caracteres'],
     },
     amount: {
       type: Number,
       required: [true, 'Valor é obrigatório'],
       min: [0.01, 'O valor deve ser positivo'],
+      max: [999999999, 'O valor excede o limite do sistema'],
     },
     category: {
       type: String,
       required: [true, 'Categoria é obrigatória'],
       trim: true,
+      maxlength: [50, 'A categoria não pode ter mais de 50 caracteres'],
     },
     type: {
       type: String,
