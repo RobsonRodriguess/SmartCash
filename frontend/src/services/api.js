@@ -60,3 +60,23 @@ export const getInsights = async () => {
   const { data } = await api.get('/insights');
   return data;
 };
+
+// --- Recuperação de Senha ---
+
+/** Passo 1: envia o código OTP para o e-mail */
+export const forgotPassword = async (email) => {
+  const { data } = await api.post('/auth/forgot-password', { email });
+  return data;
+};
+
+/** Passo 2: verifica o código OTP, retorna resetToken */
+export const verifyResetCode = async (email, code) => {
+  const { data } = await api.post('/auth/verify-reset-code', { email, code });
+  return data;
+};
+
+/** Passo 3: aplica a nova senha usando o resetToken */
+export const resetPassword = async (resetToken, password) => {
+  const { data } = await api.put('/auth/reset-password', { resetToken, password });
+  return data;
+};

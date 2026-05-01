@@ -30,6 +30,13 @@ const UserSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    // ── Recuperação de senha ──────────────────────────────────────────────
+    // Hash SHA-256 do código OTP (6 dígitos) enviado por e-mail
+    resetPasswordCode: { type: String, select: false },
+    // Expiração do código (15 minutos)
+    resetPasswordExpire: { type: Date, select: false },
+    // Hash bcrypt da senha anterior — impede reuso da mesma senha
+    previousPasswordHash: { type: String, select: false },
   },
   { timestamps: true }
 );

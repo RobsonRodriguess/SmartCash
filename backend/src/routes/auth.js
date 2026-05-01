@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
+const { sendResetCodeEmail } = require('../utils/sendEmail');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -109,6 +111,179 @@ router.get('/me', protect, (req, res) => {
       avatar: req.user.avatar,
     },
   });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// RECUPERAÇÃO DE SENHA (fluxo 3 passos)
+// ───────────────────────────────────────────────────────────────────────────
+
+const hashCode = (code) =>
+  crypto.createHash('sha256').update(code).digest('hex');
+
+/**
+ * PASSO 1 — POST /api/auth/forgot-password
+ * Recebe o e-mail, gera código OTP de 6 dígitos e envia por e-mail.
+ * Sempre retorna 200 para não revelar se o e-mail existe.
+ */
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ success: false, error: 'Informe o e-mail.' });
+  }
+
+  try {
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    if (user) {
+      // Gera código OTP de 6 dígitos (000000 – 999999)
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+
+      // Salva o hash + expiração (15 min)
+      user.resetPasswordCode = hashCode(code);
+      user.resetPasswordExpire = new Date(Date.now() + 15 * 60 * 1000);
+      await user.save({ validateBeforeSave: false });
+
+      // Envia e-mail (não bloqueia a resposta se falhar silenciosamente)
+      try {
+        await sendResetCodeEmail({ to: user.email, name: user.name, code });
+      } catch (emailErr) {
+        console.error('Erro ao enviar e-mail:', emailErr.message);
+        // Limpa o código se o e-mail falhou
+        user.resetPasswordCode = undefined;
+        user.resetPasswordExpire = undefined;
+        await user.save({ validateBeforeSave: false });
+        return res.status(500).json({
+          success: false,
+          error: 'Não foi possível enviar o e-mail. Verifique as configurações de e-mail.',
+        });
+      }
+    }
+
+    // Resposta genérica — não revela se o e-mail existe
+    res.status(200).json({
+      success: true,
+      message: 'Se este e-mail estiver cadastrado, você receberá o código em instantes.',
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ success: false, error: 'Erro interno no servidor.' });
+  }
+});
+
+/**
+ * PASSO 2 — POST /api/auth/verify-reset-code
+ * Verifica o código OTP. Se válido, retorna um token temporário (10 min)
+ * que autoriza a troca de senha (passo 3).
+ */
+router.post('/verify-reset-code', async (req, res) => {
+  const { email, code } = req.body;
+
+  if (!email || !code) {
+    return res.status(400).json({ success: false, error: 'Informe o e-mail e o código.' });
+  }
+
+  try {
+    const user = await User
+      .findOne({ email: email.toLowerCase().trim() })
+      .select('+resetPasswordCode +resetPasswordExpire');
+
+    if (!user || !user.resetPasswordCode) {
+      return res.status(400).json({ success: false, error: 'Código inválido ou expirado.' });
+    }
+
+    // Verifica expiração
+    if (user.resetPasswordExpire < new Date()) {
+      user.resetPasswordCode = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save({ validateBeforeSave: false });
+      return res.status(400).json({ success: false, error: 'Código expirado. Solicite um novo.' });
+    }
+
+    // Compara o hash
+    if (user.resetPasswordCode !== hashCode(String(code))) {
+      return res.status(400).json({ success: false, error: 'Código incorreto.' });
+    }
+
+    // Código válido — emite token de sessão de reset (10 min)
+    const resetToken = jwt.sign(
+      { id: user._id, type: 'password_reset' },
+      process.env.JWT_SECRET,
+      { expiresIn: '10m' }
+    );
+
+    res.status(200).json({ success: true, resetToken });
+  } catch (error) {
+    console.error('Verify reset code error:', error);
+    res.status(500).json({ success: false, error: 'Erro interno no servidor.' });
+  }
+});
+
+/**
+ * PASSO 3 — PUT /api/auth/reset-password
+ * Recebe o resetToken (do passo 2) e a nova senha.
+ * Valida requisitos: mín. 6 chars, 1 caractere especial, diferente da anterior.
+ */
+router.put('/reset-password', async (req, res) => {
+  const { resetToken, password } = req.body;
+
+  if (!resetToken || !password) {
+    return res.status(400).json({ success: false, error: 'Token e nova senha são obrigatórios.' });
+  }
+
+  // Valida requisitos da senha
+  if (password.length < 6) {
+    return res.status(400).json({ success: false, error: 'A senha deve ter no mínimo 6 caracteres.' });
+  }
+  const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(password);
+  if (!hasSpecialChar) {
+    return res.status(400).json({ success: false, error: 'A senha deve conter pelo menos 1 caractere especial.' });
+  }
+
+  try {
+    // Decodifica e valida o token de reset
+    let decoded;
+    try {
+      decoded = jwt.verify(resetToken, process.env.JWT_SECRET);
+    } catch {
+      return res.status(401).json({ success: false, error: 'Token inválido ou expirado. Recomece o processo.' });
+    }
+
+    if (decoded.type !== 'password_reset') {
+      return res.status(401).json({ success: false, error: 'Token de reset inválido.' });
+    }
+
+    const user = await User
+      .findById(decoded.id)
+      .select('+password +resetPasswordCode +resetPasswordExpire +previousPasswordHash');
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Usuário não encontrado.' });
+    }
+
+    // Verifica se a nova senha é igual à atual
+    if (user.password) {
+      const bcrypt = require('bcryptjs');
+      const isSameAsCurrent = await bcrypt.compare(password, user.password);
+      if (isSameAsCurrent) {
+        return res.status(400).json({
+          success: false,
+          error: 'A nova senha deve ser diferente da senha atual.',
+        });
+      }
+    }
+
+    // Aplica nova senha (o hook pre-save faz o hash)
+    user.password = password;
+    user.resetPasswordCode = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Senha alterada com sucesso! Faça login com a nova senha.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ success: false, error: 'Erro interno no servidor.' });
+  }
 });
 
 module.exports = router;

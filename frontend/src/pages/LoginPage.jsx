@@ -1,16 +1,20 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { loginWithGoogle, loginWithEmail, registerWithEmail } = useAuth();
 
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Mensagem de sucesso vinda do fluxo de recuperação de senha
+  const successMsg = location.state?.successMsg || '';
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -96,6 +100,13 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {/* Banner de sucesso (vindo do reset de senha) */}
+          {successMsg && (
+            <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs rounded-xl px-4 py-3 flex items-center gap-2 mb-5">
+              <span>🎉</span><span>{successMsg}</span>
+            </div>
+          )}
+
           {/* Botão Google */}
           <div className="flex justify-center mb-6">
             <div className="w-full" style={{ colorScheme: 'dark' }}>
@@ -152,7 +163,17 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="text-xs font-medium text-slate-400 mb-1.5 block">Senha</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-slate-400">Senha</label>
+                {mode === 'login' && (
+                  <Link
+                    to="/forgot-password"
+                    className="text-xs text-primary-400 hover:text-primary-300 transition-colors"
+                  >
+                    Esqueci minha senha
+                  </Link>
+                )}
+              </div>
               <input
                 id="input-password"
                 type="password"
